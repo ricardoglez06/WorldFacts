@@ -1,0 +1,36 @@
+<figure class="fact-card">
+  <div class="fact-card__media" [class.fact-card__media--fallback]="imgFailed()">
+    @if (!imgFailed()) {
+      <img
+        class="fact-card__image"
+        [src]="fact.imageUrl"
+        [alt]="'Vista real de ' + fact.locationName + ', ' + fact.country"
+        loading="eager"
+        decoding="async"
+        (error)="onImgError()"
+      />
+    } @else {
+      <div class="fact-card__placeholder" aria-hidden="true">
+        <span>{{ fact.locationName }}</span>
+      </div>
+    }
+  </div>
+
+  <figcaption class="fact-card__bar" [@reveal]="fact.id">
+    <div class="fact-card__head">
+      <app-category-badge [category]="fact.category" />
+      <h1 class="fact-card__location">{{ fact.locationName }}</h1>
+      <span class="fact-card__country">{{ fact.country }}</span>
+    </div>
+    <p class="fact-card__text">{{ fact.fact }}</p>
+    @if (fact.source) {
+      <a
+        class="fact-card__source"
+        [href]="fact.source"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Fuente: Wikipedia ↗</a
+      >
+    }
+  </figcaption>
+</figure>

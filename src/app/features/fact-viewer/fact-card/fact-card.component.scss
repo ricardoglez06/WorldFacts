@@ -1,0 +1,143 @@
+:host {
+  display: block;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.fact-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.fact-card__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #11131a;
+}
+
+.fact-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.fact-card__media--fallback {
+  background: radial-gradient(
+      circle at 30% 20%,
+      rgba(232, 179, 57, 0.25),
+      transparent 55%
+    ),
+    linear-gradient(135deg, #1b2030, #0a0a0c);
+}
+
+.fact-card__placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 4rem);
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+  padding: 1rem;
+}
+
+/* Cinematic scrim so the bottom text bar is always legible */
+.fact-card__media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.92) 0%,
+    rgba(0, 0, 0, 0.55) 26%,
+    rgba(0, 0, 0, 0) 55%
+  );
+  pointer-events: none;
+}
+
+/* Bottom text bar — wider text, less vertical height, no ellipsis */
+.fact-card__bar {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: clamp(0.75rem, 2vh, 1.25rem) clamp(1.25rem, 5vw, 4rem)
+    clamp(2.25rem, 4vh, 3rem);
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.fact-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4rem 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.fact-card__location {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.1rem, 2.6vw, 1.75rem);
+  line-height: 1.05;
+  margin: 0;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+}
+
+.fact-card__country {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.fact-card__text {
+  font-family: var(--font-body);
+  font-size: clamp(0.95rem, 1.7vw, 1.15rem);
+  line-height: 1.6;
+  opacity: 0.96;
+  max-width: min(1100px, 94vw);
+  margin: 0 auto;
+}
+
+.fact-card__source {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  color: var(--accent-warm);
+  text-decoration: none;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.fact-card__source:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .fact-card__bar {
+    padding-left: clamp(64px, 20vw, 84px);
+    padding-right: clamp(64px, 20vw, 84px);
+    max-height: 64vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fact-card__bar {
+    animation: none !important;
+  }
+}

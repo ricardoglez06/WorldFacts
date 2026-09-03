@@ -1,0 +1,32 @@
+:host {
+  display: block;
+}
+
+.viewer {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+}
+
+.loading-more {
+  position: fixed;
+  top: clamp(14px, 3vh, 24px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  background: rgba(10, 10, 12, 0.5);
+  backdrop-filter: blur(6px);
+  color: var(--text-primary);
+  opacity: 0.9;
+}

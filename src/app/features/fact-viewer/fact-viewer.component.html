@@ -1,0 +1,17 @@
+<div class="viewer">
+  @if (waiting()) {
+    <app-loading-spinner />
+  } @else if (currentFact(); as fact) {
+    <app-nav-arrow direction="left" (navigate)="prev()" />
+
+    <main class="stage">
+      <app-fact-card [fact]="fact" />
+    </main>
+
+    <app-nav-arrow direction="right" (navigate)="next()" />
+
+    @if (loadingMore()) {
+      <div class="loading-more" aria-hidden="true">Cargando más lugares…</div>
+    }
+  }
+</div>
