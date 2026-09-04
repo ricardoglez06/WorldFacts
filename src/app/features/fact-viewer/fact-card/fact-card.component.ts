@@ -1,12 +1,11 @@
 import { Component, Input, signal } from '@angular/core';
 import { animate, style, transition, trigger } from '@angular/animations';
 import { PlaceFact } from '../../../core/models/place-fact.model';
-import { CategoryBadgeComponent } from '../../../shared/components/category-badge/category-badge.component';
 
 @Component({
   selector: 'app-fact-card',
   standalone: true,
-  imports: [CategoryBadgeComponent],
+  imports: [],
   templateUrl: './fact-card.component.html',
   styleUrl: './fact-card.component.scss',
   animations: [
