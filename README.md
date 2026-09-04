@@ -4,48 +4,108 @@ An immersive, cinema-style journey through the most fascinating places on Earth.
 
 Every screen shows a real photograph of a remarkable place — from ancient stone circles and surreal salt deserts to remote islands and restless volcanoes — paired with a single curious, eerie, or rare fact about it. No maps, no diagrams: just the place itself and the story that makes it worth remembering.
 
-The experience is built as an endless carousel. Use the left and right arrows (or your keyboard's arrow keys) to drift from one wonder to the next, in any direction, forever. Each fact is chosen to be the most interesting piece of the place's story — the ghostly legend, the impossible scale, the strange isolation — not just a dry introduction.
+The experience is built as an endless carousel. Use the left and right arrows (or your keyboard's arrow keys) to drift from one wonder to the next, in any direction, forever. Each fact is extracted and curated by an LLM (Google Gemini) from the place's Wikipedia article, so what you read is the most interesting, unusual, or surprising detail — not a dry introduction.
 
-Whether you have a minute or an hour, World Facts is a quiet, full-screen escape into the weird and beautiful corners of our world.
+---
+
+## Monorepo layout
+
+This repository contains both the frontend and the backend:
+
+```
+world-facts-app/
+├── src/                 # Angular frontend (the cinema carousel)
+├── public/
+│   └── data/places.json # Curated seed catalog of photogenic places
+├── backend/             # Node.js + Express API (fact curation service)
+│   ├── src/
+│   │   ├── config/      # PostgreSQL pool, logger
+│   │   ├── middleware/   # rate limiter, auth, metrics, error handling
+│   │   ├── services/    # Wikipedia, Gemini, fact orchestration, auth, places
+│   │   ├── routes/      # public + admin + metrics + auth endpoints
+│   │   └── models/      # shared TypeScript types
+│   ├── migrations/       # SQL schema
+│   ├── scripts/          # migrate, seed-places, pre-generate-facts
+│   └── docker/           # Dockerfile, docker-compose (postgres + nginx + certbot)
+├── angular.json
+└── README.md
+```
 
 ---
 
 ## How it works
 
-World Facts is a **single-page web application** built with [Angular](https://angular.dev) (v20). It runs entirely in the browser — there is no backend of its own. Instead, it stitches together a few public, keyless web APIs at runtime to assemble each slide on demand. The result feels like a curated documentary, but every fact and photo is fetched live.
+World Facts is a single-page web app (Angular) backed by a small API service. The app never talks to Wikipedia or Gemini directly — it asks its own backend, which does the heavy lifting and caches the result.
 
-### The pieces and how they connect
+### The data flow
 
-**1. The catalog (`FactsService`)**
-Everything starts with a small, hand-picked list of photogenic places in `public/data/places.json`. Each entry carries a title, a category (curious / eerie / rare), and keyword hints used later to find a good photo. `FactsService` owns this catalog and turns it into an *effectively endless* stream: as you approach the end of what's loaded, it asks Wikipedia for the members of themed categories (volcanoes, islands, mountains, …), merges the new titles in, and keeps the carousel circular. Results are cached so revisiting a place never triggers a duplicate request.
+```
+Angular carousel
+   │  GET /api/places/:slug/fact   (x-session-id header)
+   ▼
+Backend API
+   │ 1. DB cache hit?  → return cached fact (milliseconds)
+   │ 2. Cache miss:
+   │      a. Fetch enriched Wikipedia extract (intro + themed sections)
+   │      b. Send it to Gemini with a strict prompt
+   │      c. Store the curated fact in PostgreSQL
+   ▼
+PostgreSQL  ◄── Gemini (Google) + Wikipedia (es.wikipedia.org)
+```
 
-**2. The story (`WikipediaService` → `FactsService.pickInteresting`)**
-For each place, `WikipediaService` calls Wikipedia's action API to pull an extract — not just the opening line, but a wider slice of the article (up to 25 sentences). `FactsService` then runs `pickInteresting()`, which scores every sentence against the place's category (e.g. eerie places are boosted for death, abandonment, or curse language) and keeps the top three. Section headings and stray zero-width characters are stripped, so what you read is clean, relevant, and genuinely intriguing.
+### Backend responsibilities
 
-**3. The image (`PhotoService`)**
-To honor the "no maps" rule, `PhotoService` searches **Wikimedia Commons** for a real photograph of the place, filtering out SVGs, diagrams, coats of arms, flags, and anything with "map" or "location" in the name. If an Unsplash access key is supplied through the `UNSPLASH_ACCESS_KEY` injection token, the app prefers Unsplash's higher-quality photography instead — but the app works fully without one.
+- **Wikipedia extraction** (`services/wikipedia.service.ts`): pulls the article introduction plus themed sections (Curiosidades, Historia, Leyendas, Misterios, …), cleans the text, and caps it so the LLM call stays cheap.
+- **Gemini curation** (`services/gemini.service.ts`): an optimized prompt asks for exactly **one** unusual/surprising fact, max **100 words**, JSON-only (`{ "dato_curioso": "..." }`). If Gemini finds nothing or fails, the backend falls back to a keyword-scoring heuristic so the UI never breaks.
+- **Caching** (`services/fact.service.ts`): every generated fact is stored in PostgreSQL keyed by place, so each slide is computed at most once. The frontend gets sub-second responses thereafter.
+- **Rate limiting** (`middleware/rateLimiter.ts`): per-session counter (configurable window, e.g. 100 requests/hour) defends the API and your Gemini quota.
+- **Auth** (`services/auth.service.ts`): admin endpoints are protected with JWT. Log in via `POST /api/auth/login`; manage places with a `Bearer` token.
+- **Metrics** (`routes/metrics.routes.ts`): `/api/metrics/summary` and `/api/metrics/recent` report cache-hit rate, Gemini calls, and latency.
+- **Endless catalog**: the frontend also grows its list of places from Wikipedia categories on the fly; the backend auto-provisions any unknown slug so the carousel never stops.
 
-**4. The presentation (`FactViewer` + `FactCard`)**
-`FactViewer` is the carousel: it tracks the current index with Angular **Signals**, renders the active `FactCard`, and pre-fetches the neighbours so navigation feels instant. `FactCard` lays the photo full-screen and floats a readable text bar along the bottom (no ellipsis, no clipping — long facts simply scroll). If a photo fails to load, a moody gradient fallback keeps the cinema mood intact. Navigation arrows, loading states, and category badges are small shared components reused across the app.
+### Frontend
 
-**5. The glue**
-A single `ErrorInterceptor` watches every HTTP call and surfaces failures gracefully instead of breaking the screen. Global SCSS design tokens (colors, fonts, spacing) keep the dark, cinematic look consistent, and Angular's animation system adds the soft cross-fades between places.
-
-### Data flow in one line
-
-`places.json` → `FactsService` (catalog + endless growth) → `WikipediaService` (facts) + `PhotoService` (photos) → `FactViewer` (Signals-driven carousel) → `FactCard` (cinema layout) → your screen.
+- `BackendApiService` requests a curated fact per place slug.
+- `FactsService` wraps that with the real photo (Wikimedia Commons, no maps) and prefetches neighbours so navigation feels instant.
+- `FactCard` renders the photo full-screen with a readable text bar (no ellipsis); on image failure it shows a moody gradient.
 
 ---
 
-## Running it locally
+## Local development
 
-You'll need [Node.js](https://nodejs.org) (v20 or newer) and the Angular CLI.
+### 1. Backend
+
+```bash
+cd backend
+npm install
+cp .env.example .env          # set GEMINI_API_KEY and DB credentials
+# have a PostgreSQL instance running, then:
+npm run migrate               # create tables + default admin
+npm run seed-places          # import public/data/places.json
+npm run dev                  # listens on http://localhost:3000
+```
+
+Optional: warm the cache so swipes are instant —
+
+```bash
+npm run pre-generate-facts
+```
+
+Default admin login after migrate: `admin` / `admin123` (change it immediately).
+
+### 2. Frontend
 
 ```bash
 npm install
-npm start          # or: ng serve
+ng serve                      # http://localhost:4200
 ```
 
-Then open `http://localhost:4200/`. Use the on-screen arrows or your keyboard's left/right keys to explore.
+The frontend points at `http://localhost:3000/api` in dev (see `src/environments/environment.ts`).
 
-> Optional: to use Unsplash photos instead of Wikimedia Commons, provide a key via the `UNSPLASH_ACCESS_KEY` injection token (e.g. in your environment providers). Without it, the app falls back to Wikimedia automatically.
+---
+
+## Deployment
+
+- `backend/docker/docker-compose.yml` bundles PostgreSQL, the API, Nginx (SSL) and Certbot (Let's Encrypt).
+- Build the API image with `backend/docker/Dockerfile`; for production set `environment.prod.ts` `apiUrl` to your domain.
+- CI/CD: see `.github/workflows` (tests/lint/build + deploy).
